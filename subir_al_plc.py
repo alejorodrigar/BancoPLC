@@ -135,12 +135,17 @@ def leer_paquete(ruta: Path) -> InfoPaquete:
             if _buscar(nombres, fichero):
                 info.pruebas_compilado.append(fichero)
         info.compilado = bool({"res.hex", "res.dll"} & set(info.pruebas_compilado))
-        n = _buscar(nombres, "CompileReport.txt")
-        if n:
-            m = re.search(r"(\d+)\s+error", leer(n), re.IGNORECASE)
-            if m and int(m.group(1)) > 0:
-                info.compilado = False
-                info.avisos.append(f"CompileReport.txt indica {m.group(1)} errores de compilación.")
+        # Informes de la última compilación: la última línea «N errors» manda
+        for informe in ("ErrorLog.txt", "CompileReport.txt"):
+            n = _buscar(nombres, informe)
+            if not n:
+                continue
+            cuentas = re.findall(r"^\s*(\d+)\s+errors?\b", leer(n), re.IGNORECASE | re.MULTILINE)
+            if cuentas:
+                info.pruebas_compilado.append(f"{informe}: {cuentas[-1]} errores")
+                if int(cuentas[-1]) > 0:
+                    info.compilado = False
+                    info.avisos.append(f"{informe} indica {cuentas[-1]} errores de compilación.")
     return info
 
 
@@ -311,6 +316,7 @@ class AnalisisLog:
     errores: list[str] = field(default_factory=list)       # errores que no sabemos explicar
     explicados: list[str] = field(default_factory=list)    # errores conocidos que no impiden subir
     n_explicados: int = 0               # cuántos de los errores que cuenta CAP son conocidos
+    motivo_login: str = ""              # lo que devolvió CAP en el último login fallido
 
 
 # Errores que CAP cuenta en su código de salida pero que no impiden subir el programa
@@ -327,13 +333,18 @@ def analizar_log(texto: str) -> AnalisisLog:
         if SVN_SIN_TORTOISE in l:
             a.explicados.append("CAP no encuentra TortoiseSVN (CAP500.ini [VCS] SvnVersion=tortoise); "
                                 "no afecta a la subida.")
-            a.n_explicados += 1
+            # Comprobado con un batch vacío (solo scb_log_file + project_quit) en CAP 6.2:
+            # este fallo suma 2 al código de salida aunque en el log salga una sola línea.
+            a.n_explicados += 2
             continue
         if "MAS_Login" in l:
             if "SUCCEEDED" in l:
                 a.login_ok = True
             elif "FAILED" in l:
                 login_fallos += 1
+                # p. ej. «returned=0x800705b4=Timeout of a command is occurred»
+                m = re.search(r"returned=(0x[0-9A-Fa-f]+)=?(.*)$", l)
+                a.motivo_login = f"{m.group(2).strip()} ({m.group(1)})" if m else l
             continue
         if l.startswith("online_download"):
             tras_download = True
@@ -345,14 +356,12 @@ def analizar_log(texto: str) -> AnalisisLog:
             tras_download = False
         if re.match(r"(error|fatal)\b", l, re.IGNORECASE) or ("FAILED" in l and "MAS-call" in l):
             a.errores.append(l)
-    if login_fallos:
-        texto_fallo = (f"El login falló {login_fallos} vez/veces antes de conectar "
-                       "(normal si el simulador aún estaba arrancando).")
-        if a.login_ok:
-            a.explicados.append(texto_fallo)
-            a.n_explicados += login_fallos
-        else:
-            a.errores.append("No se pudo hacer login: " + texto_fallo)
+    if login_fallos and a.login_ok:
+        # Es una línea de traza: CAP reintenta y no lo suma a su código de salida.
+        a.explicados.append(f"El login falló {login_fallos} vez/veces antes de conectar "
+                            "(normal si el simulador aún estaba arrancando).")
+    elif login_fallos:
+        a.errores.insert(0, f"Login fallido ({login_fallos} intento/s): {a.motivo_login}")
     return a
 
 
@@ -443,6 +452,12 @@ def main(argv: list[str] | None = None) -> int:
                   inicio=dt.datetime.now().isoformat(timespec="seconds"))
 
     try:
+        r.paso = "comprobar las rutas"
+        for ruta in (paquete, carpeta):
+            if "~" in str(ruta):
+                raise ErrorBanco(f"CAP no admite rutas con «~» (las cambia por «%»): {ruta}. "
+                                 "Usa la ruta larga o mueve el fichero.")
+
         r.paso = "leer el paquete"
         info = leer_paquete(paquete)
         r.paquete = asdict(info)
@@ -509,7 +524,9 @@ def main(argv: list[str] | None = None) -> int:
             codigo = 2
         elif r.login and not an.login_ok:
             r.paso = "login"
-            r.mensaje = f"No se pudo hacer login en {info.conexion}. Revisa scb.log."
+            r.mensaje = (f"No se pudo hacer login en {info.conexion}: "
+                         f"{an.motivo_login or 'CAP no dio el motivo'}. Comprueba que el PLC está "
+                         "encendido, que la IP es la correcta y que este PC llega a ella (ping).")
             codigo = 2
         elif an.errores or r.codigo_cap > an.n_explicados:
             r.mensaje = (f"CAP terminó con {r.codigo_cap} error(es) y solo {an.n_explicados} son conocidos. "

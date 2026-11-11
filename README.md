@@ -80,11 +80,22 @@ RFIDCABA = 0 → CABKEY1 = 0 (OK).
 Errores que CAP cuenta en su código de salida pero que no impiden subir (salen como avisos y el resultado es OK):
 
 - `SCC_E_TORTOISE_NOT_FOUND`: CAP no encuentra TortoiseSVN (`CAP500.ini` `[VCS] SvnVersion=tortoise`).
+  Suma **2** al código de salida aunque en el log salga una línea (comprobado con un batch vacío en CAP 6.2).
 - Un login que falla y luego conecta (con el simulador, el primer intento llega antes de que arranque).
+  Es una línea de traza y CAP no la suma a su código.
+
+Para saber si viene compilado se mira la última línea «N errors» de `ErrorLog.txt` y `CompileReport.txt`.
+
+Las rutas no pueden llevar `~` (nombres cortos de Windows como `ALEJAN~1`): CAP lo cambia por `%` y falla.
 
 Con el simulador (`localhost`), CAP arranca MosSim él solo, `online_download` no hace nada (el simulador ya
 carga el `res.dll`) y al salir CAP el simulador se para.
 
 Probado el 2026-11-11 con `lrv_043_v00_03_04_sim_11112026.pcz` (CAP 6.2, simulador): OK en 27 s.
+
+Si el PLC no responde (probado con la IP 192.0.2.1, que nunca contesta): CAP intenta el login una vez,
+espera `LOGINTIMEOUT` del `selectron.ini` (5000 ms en el 043), da `0x800705b4 Timeout of a command is occurred`,
+aborta el batch y se cierra solo (17 s en total, sin cuadros de diálogo). El resultado es ERROR en el paso «login»
+con ese motivo.
 
 Requisitos: Python 3.11 o superior, sin librerías externas, y CAP1131 instalado en `C:\Selectron\CAP1131`.
