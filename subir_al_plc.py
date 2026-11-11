@@ -425,6 +425,11 @@ def escribir_resultado(carpeta: Path, r: Resultado) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    return ejecutar(argv)[0]
+
+
+def ejecutar(argv: list[str] | None = None) -> tuple[int, Path, Resultado]:
+    """Lo mismo que main, pero devuelve también la carpeta y el resultado (lo usa vigilar_carpeta.py)."""
     ap = argparse.ArgumentParser(description="Sube al PLC un proyecto CAP1131 ya compilado (.pcz).")
     ap.add_argument("paquete", type=Path, help="paquete del proyecto (.pcz), con la IP ya guardada")
     ap.add_argument("--cap", default="", help="versión de CAP a usar (por defecto, la de PackInfo.txt)")
@@ -557,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
     for aviso in r.avisos:
         print(f"  Aviso: {aviso}")
     print(f"Resultado en {carpeta / 'resultado.txt'}")
-    return codigo
+    return codigo, carpeta, r
 
 
 if __name__ == "__main__":

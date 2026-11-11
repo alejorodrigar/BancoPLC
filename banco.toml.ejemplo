@@ -1,0 +1,13 @@
+# Configuración de vigilar_carpeta.py. Cópialo como banco.toml y cambia las rutas.
+# Las rutas van entre comillas simples ('C:\...'): con comillas dobles habría que escribir cada \ dos veces.
+# Usa rutas largas (sin «~») y, para carpetas de red, la ruta UNC ('\\servidor\carpeta'):
+# la tarea programada no ve las unidades de red asignadas con letra.
+
+entrada  = 'C:\BancoPLC\entrada'     # aquí se dejan los .pcz, ya compilados y con la IP buena
+trabajo  = 'C:\BancoPLC\trabajo'     # una subcarpeta por cada subida (proyecto desempaquetado, logs de CAP)
+registro = 'C:\BancoPLC\registro'    # registro_subidas.csv y vigilante_<fecha>.log
+
+grabar_flash  = true    # online_download flash
+tiempo_max_s  = 600     # si CAP tarda más, se corta (puede haberse quedado en un diálogo)
+minutos_copia = 2       # los .pcz modificados hace menos de esto se dejan para la próxima vez
+sin_login     = false   # true solo para probar sin PLC: desempaqueta y no conecta

@@ -5,13 +5,40 @@ Se construye por partes; cada parte funciona sola y al final se encadenan.
 
 | # | Parte | Estado |
 |---|---|---|
-| 1 | Subir al PLC un proyecto ya compilado (`subir_al_plc.py`) | en pruebas |
+| 1 | Subir al PLC un proyecto ya compilado (`subir_al_plc.py`) | probado con simulador; falta PLC real |
 | 2 | Compilar con CAP batch y subir | pendiente |
 | 3 | Lanzar proyectos de POUtest (`POUtest1131.Console`) | pendiente |
 | 4 | Lanzar secuenciales de TestStand | pendiente |
-| 5 | Vigilante de la carpeta compartida (entrada, en curso, resultados, errores) | pendiente |
-| 6 | Registro, resumen y avisos | pendiente |
-| 7 | Instalación en el PC del banco (tarea programada) | pendiente |
+| 5 | Vigilante diario de una carpeta de `.pcz` (`vigilar_carpeta.py`) | probado con simulador; falta PLC real |
+| 6 | Registro, resumen y avisos | registro CSV y log diario hechos; avisos pendientes |
+| 7 | Instalación en el PC del banco (`instalar_tarea.bat`) | escrito, sin probar |
+
+## Vigilante diario: `vigilar_carpeta.py`
+
+Cada vez que se ejecuta revisa los `.pcz` de una carpeta y sube al PLC solo lo que ha cambiado:
+
+1. Lee cada `.pcz` (sin desempaquetarlo) para saber a qué IP va y calcula su huella SHA-256.
+2. Si hay varios `.pcz` para la misma IP, se queda con el más reciente y avisa de los demás.
+3. Si la última subida **OK** a esa IP fue de un paquete con la misma huella: `SIN CAMBIOS`, no sube nada.
+   Si no (nuevo, distinto o el último intento falló), lo sube con `subir_al_plc.py`.
+4. Apunta cada decisión en `registro\registro_subidas.csv`
+   (`fecha;hora;paquete;sha256;ip;cap;resultado;mensaje;carpeta`) y en `registro\vigilante_<fecha>.log`.
+
+Los `.pcz` modificados hace menos de `minutos_copia` minutos se dejan para la próxima vez, por si se están copiando.
+Un fichero `registro\vigilante.lock` impide que corran dos vigilantes a la vez.
+
+Solo sabe lo que hay en el PLC por su propio registro: si alguien carga otro programa a mano, no se entera
+(no hay comando batch documentado que diga qué proyecto tiene cargado el PLC).
+
+```bash
+copy banco.toml.ejemplo banco.toml       (y cambiar las rutas)
+python vigilar_carpeta.py --simulacro    (decide y apunta, sin lanzar CAP)
+python vigilar_carpeta.py
+instalar_tarea.bat 06:00                 (tarea programada diaria, con la sesión del usuario iniciada)
+```
+
+Probado el 2026-11-11 en local con el simulador: 1.ª pasada OK, 2.ª `SIN CAMBIOS`; con un paquete a una IP que
+no responde, ERROR y reintento en la siguiente pasada; con dos paquetes para la misma IP, se usa el más reciente.
 
 ## Parte 1: `subir_al_plc.py`
 
