@@ -7,6 +7,11 @@ entrada  = 'C:\BancoPLC\entrada'     # aquí se dejan los .pcz, ya compilados y 
 trabajo  = 'C:\BancoPLC\trabajo'     # una subcarpeta por cada subida (proyecto desempaquetado, logs de CAP)
 registro = 'C:\BancoPLC\registro'    # registro_subidas.csv y vigilante_<fecha>.log
 
+# Horas a las que se lanza el vigilante todos los días (formato HH:MM, una o varias).
+# Después de cambiarlas hay que volver a ejecutar instalar_tarea.bat para que Windows las coja.
+horas = ['06:00']
+# horas = ['06:00', '14:00', '22:00']
+
 grabar_flash  = true    # online_download flash
 tiempo_max_s  = 600     # si CAP tarda más, se corta (puede haberse quedado en un diálogo)
 minutos_copia = 2       # los .pcz modificados hace menos de esto se dejan para la próxima vez

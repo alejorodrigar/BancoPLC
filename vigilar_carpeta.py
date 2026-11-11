@@ -45,7 +45,25 @@ POR_DEFECTO = {
     "tiempo_max_s": 600,
     "minutos_copia": 2,
     "sin_login": False,                     # solo para probar: desempaqueta sin conectar
+    "horas": ["06:00"],                     # a qué horas lanza la tarea programada (instalar_tarea.py)
 }
+
+
+def validar_horas(horas) -> list[str]:
+    """Comprueba que `horas` es una lista de «HH:MM» y la devuelve normalizada y sin repetidos."""
+    if isinstance(horas, str):
+        horas = [horas]
+    if not isinstance(horas, list) or not horas:
+        raise SystemExit("«horas» debe ser una lista de horas, por ejemplo: horas = ['06:00', '14:30']")
+    res = []
+    for h in horas:
+        try:
+            t = dt.datetime.strptime(str(h).strip(), "%H:%M")
+        except ValueError:
+            raise SystemExit(f"Hora no válida en «horas»: {h!r}. Usa el formato HH:MM, por ejemplo '06:00'.")
+        if (n := f"{t:%H:%M}") not in res:
+            res.append(n)
+    return sorted(res)
 
 
 def leer_config(ruta: Path | None) -> dict:
@@ -63,6 +81,7 @@ def leer_config(ruta: Path | None) -> dict:
     if desconocidas:
         raise SystemExit(f"Claves desconocidas en {ruta}: {', '.join(sorted(desconocidas))}")
     cfg.update(datos)
+    cfg["horas"] = validar_horas(cfg["horas"])
     return cfg
 
 
@@ -210,7 +229,9 @@ def main(argv: list[str] | None = None) -> int:
                 apuntar(ruta_csv, {**base, "resultado": "SIN CAMBIOS", "mensaje": msg})
                 continue
 
-            fallo = next((f for f in reversed(registro) if f["ip"] == ip), None)
+            # último intento real de subir a esta IP (sin contar simulacros ni «sin cambios»)
+            fallo = next((f for f in reversed(registro) if f["ip"] == ip
+                          and f["resultado"] not in ("SIMULACRO", "SIN CAMBIOS")), None)
             if fallo and fallo["sha256"] == sha and fallo["resultado"] == "ERROR":
                 motivo = f"el último intento, el {fallo['fecha']} {fallo['hora']}, falló; se reintenta"
             elif not anterior:

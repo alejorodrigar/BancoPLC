@@ -11,7 +11,7 @@ Se construye por partes; cada parte funciona sola y al final se encadenan.
 | 4 | Lanzar secuenciales de TestStand | pendiente |
 | 5 | Vigilante diario de una carpeta de `.pcz` (`vigilar_carpeta.py`) | probado con simulador; falta PLC real |
 | 6 | Registro, resumen y avisos | registro CSV y log diario hechos; avisos pendientes |
-| 7 | Instalación en el PC del banco (`instalar_tarea.bat`) | escrito, sin probar |
+| 7 | Instalación en el PC del banco (`instalar_tarea.bat` / `instalar_tarea.py`, horas en `banco.toml`) | probado con `--mostrar`; sin crear tareas reales |
 
 ## Vigilante diario: `vigilar_carpeta.py`
 
@@ -31,11 +31,19 @@ Solo sabe lo que hay en el PLC por su propio registro: si alguien carga otro pro
 (no hay comando batch documentado que diga qué proyecto tiene cargado el PLC).
 
 ```bash
-copy banco.toml.ejemplo banco.toml       (y cambiar las rutas)
+copy banco.toml.ejemplo banco.toml       (y cambiar las rutas y las horas)
 python vigilar_carpeta.py --simulacro    (decide y apunta, sin lanzar CAP)
 python vigilar_carpeta.py
-instalar_tarea.bat 06:00                 (tarea programada diaria, con la sesión del usuario iniciada)
+instalar_tarea.bat --mostrar             (enseña las tareas que crearía, sin tocar Windows)
+instalar_tarea.bat                       (crea una tarea diaria por cada hora de banco.toml)
+instalar_tarea.bat --borrar              (borra todas las tareas BancoPLC_*)
 ```
+
+Las horas van en `banco.toml`, por ejemplo `horas = ['06:00', '14:00']`. `instalar_tarea.py` crea una tarea
+`BancoPLC_HHMM` por hora, borrando antes las que hubiera, así que tras cambiar las horas basta con volver a
+ejecutarlo. Las tareas usan `/IT`: solo corren con la sesión del usuario iniciada, porque CAP necesita escritorio.
+Como `schtasks` admite como mucho 261 caracteres de orden, el instalador genera `tarea_vigilante.bat`
+(con la ruta de Python y del `banco.toml` de ese PC) y la tarea lanza ese fichero; lo que escribe va a `salida_tarea.txt`.
 
 Probado el 2026-11-11 en local con el simulador: 1.ª pasada OK, 2.ª `SIN CAMBIOS`; con un paquete a una IP que
 no responde, ERROR y reintento en la siguiente pasada; con dos paquetes para la misma IP, se usa el más reciente.
