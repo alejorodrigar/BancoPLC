@@ -29,7 +29,7 @@ from pathlib import Path
 
 import subir_al_plc as subir
 
-AQUI = Path(__file__).resolve().parent
+AQUI = subir.AQUI           # carpeta del programa (o del .exe)
 CAMPOS = ["fecha", "hora", "paquete", "sha256", "ip", "cap", "resultado", "mensaje", "carpeta"]
 
 

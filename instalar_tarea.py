@@ -26,6 +26,13 @@ from vigilar_carpeta import AQUI, leer_config
 PREFIJO = "BancoPLC_"
 
 
+def orden_vigilante() -> str:
+    """Cómo se lanza el vigilante: BancoPLC.exe vigilar, o python vigilar_carpeta.py."""
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}" vigilar'
+    return f'"{sys.executable}" vigilar_carpeta.py'
+
+
 def tareas_existentes() -> list[str]:
     salida = subprocess.run(["schtasks", "/Query", "/FO", "CSV", "/NH"], capture_output=True,
                             text=True, encoding="mbcs", errors="replace").stdout
@@ -69,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     contenido = ("@echo off\r\n"
                  "REM Generado por instalar_tarea.py: lo lanza la tarea programada BancoPLC_*\r\n"
                  f'cd /d "{AQUI}"\r\n'
-                 f'"{sys.executable}" vigilar_carpeta.py --config "{config}" >> salida_tarea.txt 2>&1\r\n')
+                 f'{orden_vigilante()} --config "{config}" >> salida_tarea.txt 2>&1\r\n')
     print(f"Lanzador: {lanzador}")
     if a.mostrar:
         print("  " + contenido.replace("\r\n", "\n  "))

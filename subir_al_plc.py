@@ -36,7 +36,9 @@ from pathlib import Path
 SELECTRON = Path(r"C:\Selectron")
 CARPETA_CAP = SELECTRON / "CAP1131"
 CARPETA_MOS = SELECTRON / "MOS"
-AQUI = Path(__file__).resolve().parent
+# Carpeta del programa: la del .exe si va empaquetado con PyInstaller (allí __file__ es una carpeta temporal)
+EMPAQUETADO = getattr(sys, "frozen", False)
+AQUI = Path(sys.executable).resolve().parent if EMPAQUETADO else Path(__file__).resolve().parent
 
 
 class ErrorBanco(Exception):

@@ -7,3 +7,6 @@ registro/
 prueba_local/
 salida_tarea.txt
 tarea_vigilante.bat
+prueba_exe/
+build/
+*.spec

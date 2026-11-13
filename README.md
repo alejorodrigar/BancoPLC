@@ -13,6 +13,26 @@ Se construye por partes; cada parte funciona sola y al final se encadenan.
 | 6 | Registro, resumen y avisos | registro CSV y log diario hechos; avisos pendientes |
 | 7 | Instalación en el PC del banco (`instalar_tarea.bat` / `instalar_tarea.py`, horas en `banco.toml`) | probado con `--mostrar`; sin crear tareas reales |
 
+## `BancoPLC.exe` (sin Python)
+
+`exe\BancoPLC.exe` lleva los tres programas dentro; en el PC del banco no hace falta Python.
+Paso a paso en [INSTALACION.md](INSTALACION.md).
+
+```
+BancoPLC.exe vigilar   [--config banco.toml] [--simulacro]
+BancoPLC.exe instalar  [--config banco.toml] [--mostrar | --borrar]
+BancoPLC.exe subir     paquete.pcz [opciones]
+```
+
+Busca `banco.toml` junto al `.exe`. Se construye con (Python 3.13 de este PC, que tiene PyInstaller):
+
+```bash
+py -3.13 -m PyInstaller --noconfirm --onefile --console --name BancoPLC --distpath exe bancoplc.py
+```
+
+Probado el 2026-11-13 en una carpeta aparte y sin Python en el PATH: simulacro, subida al simulador del 043 (OK)
+y segunda pasada (SIN CAMBIOS).
+
 ## Vigilante diario: `vigilar_carpeta.py`
 
 Cada vez que se ejecuta revisa los `.pcz` de una carpeta y sube al PLC solo lo que ha cambiado:
