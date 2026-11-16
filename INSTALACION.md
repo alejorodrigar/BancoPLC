@@ -39,6 +39,21 @@ registro = 'C:\BancoPLC\registro'
 horas    = ['06:00']
 ```
 
+### Correo (opcional)
+
+Añade al final de `banco.toml` (copia el ejemplo de `banco.toml.ejemplo`):
+
+```toml
+[correo]
+metodo        = 'outlook'
+destinatarios = ['persona@empresa.com', 'grupo@empresa.com']
+cuando        = 'subidas'
+```
+
+Con `outlook` se envía con el Outlook de ese PC y su cuenta; no hace falta servidor ni contraseña.
+Pruébalo con `BancoPLC.exe vigilar --probar-correo`. Si Outlook enseña un aviso de «un programa intenta
+enviar correo», hay que permitirlo o usar `metodo = 'smtp'` con el servidor de la empresa.
+
 ## 4. Probar a mano
 
 Deja un `.pcz` en `entrada` y, en una consola dentro de `C:\BancoPLC`:
@@ -72,7 +87,7 @@ Para quitarlas: `BancoPLC.exe instalar --borrar`.
 ## 7. Día a día
 
 - Dejáis el `.pcz` nuevo en `entrada`: a la hora programada se sube solo si ha cambiado.
-- Qué ha pasado: `registro\registro_subidas.csv` y `registro\vigilante_<fecha>.log`.
+- Qué ha pasado: `registro\registro_subidas.csv` y `registro\vigilante_<fecha>.log`, o el correo si está configurado.
 - Lo que escribe la tarea programada va a `salida_tarea.txt`, junto a `BancoPLC.exe`.
 
 ## Subir un paquete concreto a mano

@@ -5,12 +5,12 @@ Se construye por partes; cada parte funciona sola y al final se encadenan.
 
 | # | Parte | Estado |
 |---|---|---|
-| 1 | Subir al PLC un proyecto ya compilado (`subir_al_plc.py`) | probado con simulador; falta PLC real |
+| 1 | Subir al PLC un proyecto ya compilado (`subir_al_plc.py`) | probado con simulador y con PLC real (CAP 5.12, 192.168.0.21) |
 | 2 | Compilar con CAP batch y subir | pendiente |
 | 3 | Lanzar proyectos de POUtest (`POUtest1131.Console`) | pendiente |
 | 4 | Lanzar secuenciales de TestStand | pendiente |
-| 5 | Vigilante diario de una carpeta de `.pcz` (`vigilar_carpeta.py`) | probado con simulador; falta PLC real |
-| 6 | Registro, resumen y avisos | registro CSV y log diario hechos; avisos pendientes |
+| 5 | Vigilante diario de una carpeta de `.pcz` (`vigilar_carpeta.py`) | probado con simulador y con PLC real |
+| 6 | Registro, resumen y avisos (`avisos.py`) | registro CSV y log diario hechos; correo por Outlook o SMTP probado en simulación |
 | 7 | Instalación en el PC del banco (`instalar_tarea.bat` / `instalar_tarea.py`, horas en `banco.toml`) | probado con `--mostrar`; sin crear tareas reales |
 
 ## `BancoPLC.exe` (sin Python)
@@ -24,7 +24,7 @@ BancoPLC.exe instalar  [--config banco.toml] [--mostrar | --borrar]
 BancoPLC.exe subir     paquete.pcz [opciones]
 ```
 
-Busca `banco.toml` junto al `.exe`. Se construye con (Python 3.13 de este PC, que tiene PyInstaller):
+Busca `banco.toml` junto al `.exe`. Se construye con PyInstaller en Python 3.11 o superior (`py -3.11` si es el que hay):
 
 ```bash
 py -3.13 -m PyInstaller --noconfirm --onefile --console --name BancoPLC --distpath exe bancoplc.py
@@ -44,6 +44,9 @@ Cada vez que se ejecuta revisa los `.pcz` de una carpeta y sube al PLC solo lo q
 4. Apunta cada decisión en `registro\registro_subidas.csv`
    (`fecha;hora;paquete;sha256;ip;cap;resultado;mensaje;carpeta`) y en `registro\vigilante_<fecha>.log`.
 
+5. Si `banco.toml` tiene la sección `[correo]`, manda un correo por pasada: asunto con OK o ERROR, en el cuerpo
+   cada subida y el log de la pasada; adjunta el `resultado.txt` de cada subida y, si ha fallado, su `scb.log`.
+
 Los `.pcz` modificados hace menos de `minutos_copia` minutos se dejan para la próxima vez, por si se están copiando.
 Un fichero `registro\vigilante.lock` impide que corran dos vigilantes a la vez.
 
@@ -53,6 +56,7 @@ Solo sabe lo que hay en el PLC por su propio registro: si alguien carga otro pro
 ```bash
 copy banco.toml.ejemplo banco.toml       (y cambiar las rutas y las horas)
 python vigilar_carpeta.py --simulacro    (decide y apunta, sin lanzar CAP)
+python vigilar_carpeta.py --probar-correo (manda solo un correo de prueba)
 python vigilar_carpeta.py
 instalar_tarea.bat --mostrar             (enseña las tareas que crearía, sin tocar Windows)
 instalar_tarea.bat                       (crea una tarea diaria por cada hora de banco.toml)
@@ -64,6 +68,15 @@ Las horas van en `banco.toml`, por ejemplo `horas = ['06:00', '14:00']`. `instal
 ejecutarlo. Las tareas usan `/IT`: solo corren con la sesión del usuario iniciada, porque CAP necesita escritorio.
 Como `schtasks` admite como mucho 261 caracteres de orden, el instalador genera `tarea_vigilante.bat`
 (con la ruta de Python y del `banco.toml` de ese PC) y la tarea lanza ese fichero; lo que escribe va a `salida_tarea.txt`.
+
+### Correo
+
+`metodo = 'outlook'` envía con el Outlook del PC (PowerShell + COM, sin contraseña). Como la tarea corre con la
+sesión iniciada, usa la cuenta de ese usuario. Si Outlook está cerrado, lo abre, fuerza enviar/recibir y espera
+10 s antes de salir. `metodo = 'smtp'` usa `smtplib` con servidor, puerto, `starttls`/`ssl` y usuario opcionales.
+Si el correo falla se apunta en el log y no cuenta como error de subida. `cuando` decide si se manda en cada
+subida (`subidas`, por defecto), solo con errores (`errores`) o en cada pasada (`siempre`).
+Si no se puede abrir la carpeta de entrada (red caída), cuenta como error y también avisa.
 
 Probado el 2026-11-11 en local con el simulador: 1.ª pasada OK, 2.ª `SIN CAMBIOS`; con un paquete a una IP que
 no responde, ERROR y reintento en la siguiente pasada; con dos paquetes para la misma IP, se usa el más reciente.
@@ -147,6 +160,15 @@ Con el simulador (`localhost`), CAP arranca MosSim él solo, `online_download` n
 carga el `res.dll`) y al salir CAP el simulador se para.
 
 Probado el 2026-11-11 con `lrv_043_v00_03_04_sim_11112026.pcz` (CAP 6.2, simulador): OK en 27 s.
+
+Probado el 2026-11-16 con PLC real (`LRV_022_V00_03_13_TEST.pcz`, CAP 5.12, MOS83x V760, 192.168.0.21), con el
+`.pcz` en una carpeta de red: OK en 2 min 36 s, sin diálogos. CAP para el PLC él solo (`stop PLC ? -> Yes`), descarga,
+graba en flash y lo vuelve a poner en RUN. Mientras descarga, la primera consulta de progreso
+(`MAS_GetStatusDownloadProject`) puede devolver `0x800703e5 Overlapped IO-operation is working`: si después llega
+al 100 % sale como aviso, no como error.
+
+Al hacer login, CAP escribe en `scb.log` qué proyecto tiene el PLC si no coincide con el suyo
+(`warning: Project info of CAP and PLC are not identical`, con nombre, fecha de compilación y build).
 
 Si el PLC no responde (probado con la IP 192.0.2.1, que nunca contesta): CAP intenta el login una vez,
 espera `LOGINTIMEOUT` del `selectron.ini` (5000 ms en el 043), da `0x800705b4 Timeout of a command is occurred`,

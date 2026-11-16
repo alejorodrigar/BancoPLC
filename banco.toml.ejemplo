@@ -10,9 +10,25 @@ registro = 'C:\BancoPLC\registro'    # registro_subidas.csv y vigilante_<fecha>.
 # Horas a las que se lanza el vigilante todos los días (formato HH:MM, una o varias).
 # Después de cambiarlas hay que volver a ejecutar instalar_tarea.bat para que Windows las coja.
 horas = ['06:00']
-# horas = ['06:00', '14:00', '22:00']
+# horas = ['06:00', '15:00', '19:00']
 
 grabar_flash  = true    # online_download flash
 tiempo_max_s  = 600     # si CAP tarda más, se corta (puede haberse quedado en un diálogo)
 minutos_copia = 2       # los .pcz modificados hace menos de esto se dejan para la próxima vez
 sin_login     = false   # true solo para probar sin PLC: desempaqueta y no conecta
+
+# Correo con el resultado de cada pasada (opcional). Va al final del fichero: todo lo que haya debajo
+# de [correo] pertenece a esta sección. Probar: BancoPLC.exe vigilar --probar-correo
+[correo]
+metodo        = 'no'          # 'outlook' (el Outlook de este PC, sin contraseña), 'smtp' o 'no'
+destinatarios = ['persona@empresa.com', 'grupo@empresa.com']
+cuando        = 'subidas'     # 'subidas': si se ha subido algo o ha fallado; 'errores': solo si falla;
+                              # 'siempre': en cada pasada, también si no había nada que subir
+asunto        = 'BancoPLC'    # prefijo del asunto: [BancoPLC] OK: paquete.pcz -> 192.168.0.21
+# Solo para metodo = 'smtp':
+# servidor   = 'smtp.empresa.com'
+# puerto     = 25            # 587 con starttls, 465 con ssl
+# seguridad  = 'no'          # 'no', 'starttls' o 'ssl'
+# usuario    = ''            # vacío si el servidor no pide usuario
+# contrasena = ''            # se guarda en claro en este fichero
+# remitente  = 'bancoplc@empresa.com'
