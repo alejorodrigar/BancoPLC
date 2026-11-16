@@ -79,6 +79,26 @@ Para quitarlas: `BancoPLC.exe instalar --borrar`.
 
 ## 6. Dejar el PC preparado
 
+`BancoPLC.exe instalar` deja cada tarea para que despierte el PC si está suspendido, se ejecute en cuanto se pueda
+si se pasó la hora, no dependa de la batería y se corte a las 4 h. Comprobarlo:
+
+```
+powershell "Get-ScheduledTask BancoPLC_* | Select TaskName, State, @{n='Despierta';e={$_.Settings.WakeToRun}}"
+```
+
+Energía, con el PC enchufado:
+
+```
+powercfg /change standby-timeout-ac 0
+powercfg /change hibernate-timeout-ac 0
+powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0      (portátil: cerrar la tapa no hace nada)
+powercfg /setactive SCHEME_CURRENT
+```
+
+Windows Update: *Configuración → Windows Update → Opciones avanzadas → Horas activas*, de 05:00 a 23:00
+(como mucho 18 h) para que no reinicie a las horas de las tareas.
+
+
 - La tarea solo corre con la **sesión del usuario iniciada** (CAP necesita escritorio). Puede estar bloqueada,
   pero no cerrada. Lo ideal es un usuario con inicio de sesión automático.
 - Que no se suspenda ni se apague a esas horas.

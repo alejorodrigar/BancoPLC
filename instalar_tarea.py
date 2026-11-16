@@ -50,6 +50,18 @@ def ejecutar(cmd: list[str], mostrar: bool) -> bool:
     return r.returncode == 0
 
 
+# Ajustes que schtasks /Create no permite: despertar el PC, ejecutar la tarea perdida en cuanto se pueda,
+# no depender de la batería y cortarla si pasa de 4 h. Se aplican con PowerShell tras crear cada tarea.
+AJUSTES_PS = ("$s = New-ScheduledTaskSettingsSet -WakeToRun -StartWhenAvailable -AllowStartIfOnBatteries "
+              "-DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 4); "
+              "Set-ScheduledTask -TaskName '{nombre}' -Settings $s | Out-Null")
+
+
+def ajustar(nombre: str, mostrar: bool) -> bool:
+    return ejecutar(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                     AJUSTES_PS.format(nombre=nombre)], mostrar)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Crea las tareas programadas del vigilante.")
     ap.add_argument("--config", type=Path, help="fichero .toml (por defecto banco.toml junto al programa)")
@@ -86,8 +98,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Creando {len(cfg['horas'])} tarea(s), todos los días a las {', '.join(cfg['horas'])}:")
     for hora in cfg["horas"]:
         nombre = PREFIJO + hora.replace(":", "")
-        ok &= ejecutar(["schtasks", "/Create", "/F", "/TN", nombre, "/SC", "DAILY", "/ST", hora,
-                        "/IT", "/TR", accion], a.mostrar)
+        if ejecutar(["schtasks", "/Create", "/F", "/TN", nombre, "/SC", "DAILY", "/ST", hora,
+                     "/IT", "/TR", accion], a.mostrar):
+            # que falle este ajuste no impide que la tarea funcione: solo se avisa
+            if not ajustar(nombre, a.mostrar):
+                print(f"    Aviso: {nombre} creada, pero sin despertar el PC ni recuperar la hora perdida.")
+        else:
+            ok = False
 
     if a.mostrar:
         print("\n(--mostrar: no se ha cambiado nada en Windows)")
