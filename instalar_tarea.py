@@ -93,7 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\n(--mostrar: no se ha cambiado nada en Windows)")
     elif ok:
         print("\nListo. Para lanzar una ahora:  schtasks /Run /TN " + PREFIJO + cfg["horas"][0].replace(":", ""))
-        print("Para borrarlas todas:          python instalar_tarea.py --borrar")
+        borrar = "BancoPLC.exe instalar --borrar" if getattr(sys, "frozen", False) else "python instalar_tarea.py --borrar"
+        print("Para borrarlas todas:          " + borrar)
     return 0 if ok else 1
 
 
