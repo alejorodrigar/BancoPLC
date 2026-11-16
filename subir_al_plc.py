@@ -331,7 +331,21 @@ def analizar_log(texto: str) -> AnalisisLog:
     lineas = [l.strip() for l in texto.splitlines()]
     login_fallos = 0
     tras_download = False
+    progreso_ocupado = []       # «Overlapped IO-operation is working» al pedir el progreso de la descarga
+    descarga_100 = False
     for l in lineas:
+        if "MAS_GetStatusDownloadProject" in l:
+            # CAP pregunta el progreso; si el PLC aún está ocupado devuelve 0x800703e5 y CAP vuelve a
+            # preguntar. Solo es error si la descarga no llega nunca al 100 %.
+            # Visto el 2026-11-16 con CAP 5.12 y PLC real (CPU 83x, 192.168.0.21).
+            if "SUCCEEDED" in l and "fProgress=100" in l:
+                descarga_100 = True
+                continue
+            if "FAILED" in l and "0x800703e5" in l:
+                progreso_ocupado.append(l)
+    for l in lineas:
+        if l in progreso_ocupado:
+            continue
         if SVN_SIN_TORTOISE in l:
             a.explicados.append("CAP no encuentra TortoiseSVN (CAP500.ini [VCS] SvnVersion=tortoise); "
                                 "no afecta a la subida.")
@@ -358,6 +372,12 @@ def analizar_log(texto: str) -> AnalisisLog:
             tras_download = False
         if re.match(r"(error|fatal)\b", l, re.IGNORECASE) or ("FAILED" in l and "MAS-call" in l):
             a.errores.append(l)
+    if progreso_ocupado:
+        if descarga_100:
+            a.explicados.append(f"El PLC respondió «ocupado» {len(progreso_ocupado)} vez/veces al pedir el "
+                                "progreso de la descarga y luego llegó al 100 %; no afecta a la subida.")
+        else:
+            a.errores.extend(progreso_ocupado)
     if login_fallos and a.login_ok:
         # Es una línea de traza: CAP reintenta y no lo suma a su código de salida.
         a.explicados.append(f"El login falló {login_fallos} vez/veces antes de conectar "
@@ -535,7 +555,11 @@ def ejecutar(argv: list[str] | None = None) -> tuple[int, Path, Resultado]:
                          f"{an.motivo_login or 'CAP no dio el motivo'}. Comprueba que el PLC está "
                          "encendido, que la IP es la correcta y que este PC llega a ella (ping).")
             codigo = 2
-        elif an.errores or r.codigo_cap > an.n_explicados:
+        elif an.errores:
+            r.mensaje = (f"scb.log tiene {len(an.errores)} línea(s) de error desconocidas "
+                         f"(la primera: {an.errores[0][:200]}). Revisa scb.log.")
+            codigo = 2
+        elif r.codigo_cap > an.n_explicados:
             r.mensaje = (f"CAP terminó con {r.codigo_cap} error(es) y solo {an.n_explicados} son conocidos. "
                          "Revisa scb.log.")
             codigo = 2
