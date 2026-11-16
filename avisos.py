@@ -9,8 +9,10 @@ Dos formas de enviar (clave `metodo` de la sección [correo] de banco.toml):
 from __future__ import annotations
 
 import base64
+import html
 import json
 import os
+import re
 import shutil
 import smtplib
 import socket
@@ -97,14 +99,19 @@ def enviar(cfg: dict, asunto: str, cuerpo: str, adjuntos: list[tuple[str, Path]]
 # este script, al terminar se cerraría con el correo todavía en la Bandeja de salida.
 _PS_OUTLOOK = r"""
 $ErrorActionPreference = 'Stop'
-$d = [IO.File]::ReadAllText('__JSON__', [Text.Encoding]::UTF8) | ConvertFrom-Json
-$o = New-Object -ComObject Outlook.Application
-$m = $o.CreateItem(0)
-$m.To = $d.para
-$m.Subject = $d.asunto
-$m.Body = $d.cuerpo
-foreach ($a in $d.adjuntos) { [void]$m.Attachments.Add($a) }
-$m.Send()
+try {
+    $d = [IO.File]::ReadAllText('__JSON__', [Text.Encoding]::UTF8) | ConvertFrom-Json
+    $o = New-Object -ComObject Outlook.Application
+    $m = $o.CreateItem(0)
+    $m.To = $d.para
+    $m.Subject = $d.asunto
+    $m.Body = $d.cuerpo
+    foreach ($a in $d.adjuntos) { [void]$m.Attachments.Add($a) }
+    $m.Send()
+} catch {
+    [Console]::Out.WriteLine('ERROR: ' + $_.Exception.Message)
+    exit 1
+}
 try { $o.Session.SendAndReceive($false) } catch {}
 Start-Sleep -Seconds 10
 """
@@ -125,8 +132,25 @@ def _por_outlook(cfg: dict, asunto: str, cuerpo: str, ficheros: list[Path], tmp:
     except (OSError, subprocess.TimeoutExpired) as e:
         raise ErrorCorreo(f"no se pudo lanzar PowerShell para Outlook: {e}") from e
     if p.returncode != 0:
-        detalle = (p.stderr or p.stdout).strip().splitlines()
-        raise ErrorCorreo("Outlook no pudo enviar el correo: " + (detalle[0] if detalle else f"código {p.returncode}"))
+        raise ErrorCorreo("Outlook no pudo enviar el correo: " + _motivo_powershell(p.stdout, p.stderr, p.returncode))
+
+
+def _motivo_powershell(salida: str, error: str, codigo: int) -> str:
+    """Saca el mensaje legible: la línea «ERROR: ...» del script o el texto de error dentro del CLIXML."""
+    for l in salida.splitlines():
+        if l.startswith("ERROR: "):
+            texto = l[len("ERROR: "):].strip()
+            break
+    else:
+        # PowerShell lanzado desde otro programa manda los errores como «#< CLIXML» + XML
+        trozos = re.findall(r'<S S="Error">(.*?)</S>', error, re.DOTALL)
+        texto = "".join(trozos) if trozos else (error or salida)
+        texto = re.sub(r"_x000D_|_x000A_", " ", html.unescape(texto))
+        texto = " ".join(texto.replace("#< CLIXML", "").split())
+    if "80040154" in texto or "REGDB_E_CLASSNOTREG" in texto:
+        texto += (" (Outlook clásico no está instalado o se usa el Outlook nuevo, que no admite que otros "
+                  "programas envíen correo; usa el Outlook clásico o metodo = 'smtp')")
+    return texto[:500] or f"código {codigo}"
 
 
 def _por_smtp(cfg: dict, asunto: str, cuerpo: str, ficheros: list[Path]) -> None:
